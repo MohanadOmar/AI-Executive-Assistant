@@ -268,8 +268,8 @@ def search_knowledge_base(query: str) -> list:
 
     result = supabase.rpc("match_documents", {
         "query_embedding": embedding,
-        "match_threshold": 0.7,
         "match_count": 5,
+        "filter": {},
     }).execute()
 
     return result.data or []
