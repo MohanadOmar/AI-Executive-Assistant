@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Ensure the app directory is always on the Python path
+sys.path.insert(0, os.path.dirname(__file__))
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
@@ -10,7 +16,6 @@ from services.gmail_poller import start_poller
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start Gmail poller on startup
     task = asyncio.create_task(start_poller())
     yield
     task.cancel()
@@ -27,4 +32,4 @@ def health():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
