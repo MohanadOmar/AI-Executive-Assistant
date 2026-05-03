@@ -5,7 +5,7 @@ from urllib.parse import urlencode, quote
 
 from fastapi import APIRouter, Request, Response
 from agent import run_agent
-from system_prompts import SMS_AGENT_SYSTEM_PROMPT
+from system_prompts import get_sms_system_prompt
 
 router = APIRouter()
 
@@ -39,7 +39,7 @@ async def incoming_sms(request: Request):
     try:
         reply = run_agent(
             user_message=body,
-            system_prompt=SMS_AGENT_SYSTEM_PROMPT,
+            system_prompt=get_sms_system_prompt(),
             phone_number=from_number,
         )
         print(f"[SMS Out] To {from_number}: {reply}")
