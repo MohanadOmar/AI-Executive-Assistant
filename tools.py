@@ -154,9 +154,10 @@ def add_label(message_id: str, label_name: str) -> dict:
 # ─── Google Calendar ─────────────────────────────────────────────────────────
 
 def get_calendar_events(time_min: str = None, time_max: str = None, max_results: int = 20) -> list:
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
     service = get_calendar()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(ZoneInfo("America/Chicago"))
     start = time_min or now.isoformat()
     end = time_max or (now + timedelta(days=7)).isoformat()
 
@@ -181,7 +182,7 @@ def get_calendar_events(time_min: str = None, time_max: str = None, max_results:
 
 
 def create_calendar_event(title: str, start: str, end: str = None, description: str = "", location: str = "") -> dict:
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
     service = get_calendar()
     if not end:
         end = (datetime.fromisoformat(start) + timedelta(minutes=30)).isoformat()
@@ -189,8 +190,8 @@ def create_calendar_event(title: str, start: str, end: str = None, description: 
         calendarId=CALENDAR_ID,
         body={
             "summary": title,
-            "start": {"dateTime": start},
-            "end": {"dateTime": end},
+            "start": {"dateTime": start, "timeZone": "America/Chicago"},
+            "end": {"dateTime": end, "timeZone": "America/Chicago"},
             "description": description,
             "location": location,
         },
