@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timezone
 from tools import get_emails, send_sms_to_mohanad
 from agent import run_agent
-from system_prompts import EMAIL_MONITOR_SYSTEM_PROMPT
+from system_prompts import get_email_monitor_system_prompt
 
 _last_checked = datetime.now(timezone.utc)
 
@@ -45,7 +45,7 @@ async def check_new_emails():
         # Email monitor agent — classify only, no tools needed
         decision = run_agent(
             user_message=summary,
-            system_prompt=EMAIL_MONITOR_SYSTEM_PROMPT,
+            system_prompt=get_email_monitor_system_prompt(),
             tools=[],  # No tools for classification
         )
 
