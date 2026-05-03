@@ -55,7 +55,7 @@ Triggers: "reply to", "respond to", "answer that email", "write back to"
 LABEL EMAIL → always call add_label
 Triggers: "label this email", "tag it as", "mark as", "categorize this email"
 
-CREATE CALENDAR EVENT → always call create_calendar_event
+CREATE CALENDAR EVENT → always call create_calendar_event and always make sure that the new event will not overide other existing event by checking availibilty get_calendar_events
 Triggers: "schedule a meeting", "book a call", "add to calendar", "set up a meeting"
 Default duration: 30 minutes.
 ALWAYS use the current date/time provided above when interpreting "tomorrow", "next week", etc.
