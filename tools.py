@@ -186,6 +186,41 @@ def create_calendar_event(title: str, start: str, end: str = None, description: 
     service = get_calendar()
     if not end:
         end = (datetime.fromisoformat(start) + timedelta(minutes=30)).isoformat()
+
+    # Conflict check — query freebusy for the exact requested window
+    freebusy = service.freebusy().query(body={
+        "timeMin": start,
+        "timeMax": end,
+        "timeZone": "America/Chicago",
+        "items": [{"id": CALENDAR_ID}],
+    }).execute()
+
+    busy_slots = freebusy["calendars"][CALENDAR_ID].get("busy", [])
+    if busy_slots:
+        # There's a conflict — fetch event titles for context
+        conflicts = service.events().list(
+            calendarId=CALENDAR_ID,
+            timeMin=start,
+            timeMax=end,
+            singleEvents=True,
+            orderBy="startTime",
+        ).execute().get("items", [])
+
+        conflict_list = [
+            {
+                "title": e.get("summary", "Untitled"),
+                "start": e["start"].get("dateTime", e["start"].get("date")),
+                "end": e["end"].get("dateTime", e["end"].get("date")),
+            }
+            for e in conflicts
+        ]
+        return {
+            "conflict": True,
+            "message": f"Cannot create '{title}' — conflicts with existing event(s).",
+            "existing_events": conflict_list,
+        }
+
+    # No conflict, safe to create
     event = service.events().insert(
         calendarId=CALENDAR_ID,
         body={
@@ -196,7 +231,7 @@ def create_calendar_event(title: str, start: str, end: str = None, description: 
             "location": location,
         },
     ).execute()
-    return {"event_id": event["id"], "link": event.get("htmlLink", "")}
+    return {"event_id": event["id"], "link": event.get("htmlLink", ""), "conflict": False}
 
 
 # ─── Notion ──────────────────────────────────────────────────────────────────
