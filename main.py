@@ -1,17 +1,12 @@
-import sys
 import os
-
-# Ensure the app directory is always on the Python path
-sys.path.insert(0, os.path.dirname(__file__))
-
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 import uvicorn
 
-from routes.sms import router as sms_router
-from routes.gmail_monitor import router as gmail_router
-from services.gmail_poller import start_poller
+from sms import router as sms_router
+from gmail_monitor import router as gmail_router
+from gmail_poller import start_poller
 
 
 @asynccontextmanager

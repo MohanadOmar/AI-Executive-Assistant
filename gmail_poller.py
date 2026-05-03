@@ -1,9 +1,9 @@
 import asyncio
 import time
 from datetime import datetime, timezone
-from services.tools import get_emails, send_sms_to_mohanad
-from services.agent import run_agent
-from prompts.system_prompts import EMAIL_MONITOR_SYSTEM_PROMPT
+from tools import get_emails, send_sms_to_mohanad
+from agent import run_agent
+from system_prompts import EMAIL_MONITOR_SYSTEM_PROMPT
 
 _last_checked = datetime.now(timezone.utc)
 

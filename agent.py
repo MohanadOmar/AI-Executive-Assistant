@@ -2,7 +2,7 @@ import json
 import os
 from collections import defaultdict
 from openai import OpenAI
-from services.tools import (
+from tools import (
     get_emails, create_draft, send_email, reply_to_email, add_label,
     get_calendar_events, create_calendar_event,
     get_notion_tasks, update_notion_task, create_notion_task,

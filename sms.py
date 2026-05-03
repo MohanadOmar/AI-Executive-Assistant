@@ -4,8 +4,8 @@ import hashlib
 from urllib.parse import urlencode, quote
 
 from fastapi import APIRouter, Request, Response
-from services.agent import run_agent
-from prompts.system_prompts import SMS_AGENT_SYSTEM_PROMPT
+from agent import run_agent
+from system_prompts import SMS_AGENT_SYSTEM_PROMPT
 
 router = APIRouter()
 
