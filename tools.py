@@ -30,6 +30,10 @@ def get_google_creds():
         scopes=[
             "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/contacts",
+            "https://www.googleapis.com/auth/documents",
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
         ],
     )
     creds.refresh(Request())
@@ -42,6 +46,22 @@ def get_gmail():
 
 def get_calendar():
     return build("calendar", "v3", credentials=get_google_creds())
+
+
+def get_contacts():
+    return build("people", "v1", credentials=get_google_creds())
+
+
+def get_docs():
+    return build("docs", "v1", credentials=get_google_creds())
+
+
+def get_sheets():
+    return build("sheets", "v4", credentials=get_google_creds())
+
+
+def get_drive():
+    return build("drive", "v3", credentials=get_google_creds())
 
 
 def get_notion():
@@ -308,3 +328,295 @@ def search_knowledge_base(query: str) -> list:
     }).execute()
 
     return result.data or []
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GOOGLE CONTACTS
+# ════════════════════════════════════════════════════════════════════════════
+
+def search_contacts(query: str, max_results: int = 5) -> list:
+    """Search the user's Google Contacts by name, email, or phone."""
+    service = get_contacts()
+    # Trigger the warmup cache for searches (recommended by Google)
+    try:
+        service.people().searchContacts(query="", readMask="names").execute()
+    except Exception:
+        pass
+
+    result = service.people().searchContacts(
+        query=query,
+        readMask="names,emailAddresses,phoneNumbers,organizations",
+        pageSize=max_results,
+    ).execute()
+
+    contacts = []
+    for r in result.get("results", []):
+        person = r.get("person", {})
+        names = person.get("names", [])
+        emails = person.get("emailAddresses", [])
+        phones = person.get("phoneNumbers", [])
+        orgs = person.get("organizations", [])
+
+        contacts.append({
+            "resource_name": person.get("resourceName", ""),
+            "name": names[0].get("displayName", "") if names else "",
+            "emails": [e.get("value", "") for e in emails],
+            "phones": [p.get("value", "") for p in phones],
+            "company": orgs[0].get("name", "") if orgs else "",
+        })
+    return contacts
+
+
+def create_contact(name: str, email: str = None, phone: str = None, company: str = None) -> dict:
+    """Create a new contact."""
+    service = get_contacts()
+    body = {"names": [{"givenName": name}]}
+    if email:
+        body["emailAddresses"] = [{"value": email}]
+    if phone:
+        body["phoneNumbers"] = [{"value": phone}]
+    if company:
+        body["organizations"] = [{"name": company}]
+
+    person = service.people().createContact(body=body).execute()
+    return {"resource_name": person["resourceName"], "name": name}
+
+
+def update_contact(resource_name: str, email: str = None, phone: str = None) -> dict:
+    """Update an existing contact's email or phone. Use search_contacts first to get the resource_name."""
+    service = get_contacts()
+
+    # Need to fetch current state first
+    person = service.people().get(
+        resourceName=resource_name,
+        personFields="names,emailAddresses,phoneNumbers"
+    ).execute()
+
+    update_fields = []
+    body = {"etag": person["etag"]}
+
+    if email:
+        body["emailAddresses"] = [{"value": email}]
+        update_fields.append("emailAddresses")
+    if phone:
+        body["phoneNumbers"] = [{"value": phone}]
+        update_fields.append("phoneNumbers")
+
+    if not update_fields:
+        return {"error": "No fields to update"}
+
+    updated = service.people().updateContact(
+        resourceName=resource_name,
+        updatePersonFields=",".join(update_fields),
+        body=body,
+    ).execute()
+
+    return {"success": True, "resource_name": updated["resourceName"]}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GOOGLE DOCS
+# ════════════════════════════════════════════════════════════════════════════
+
+def list_recent_docs(max_results: int = 10, query: str = None) -> list:
+    """List recent Google Docs. Optionally filter by name/keyword."""
+    drive = get_drive()
+    q = "mimeType='application/vnd.google-apps.document' and trashed=false"
+    if query:
+        q += f" and name contains '{query}'"
+
+    result = drive.files().list(
+        q=q,
+        orderBy="modifiedTime desc",
+        pageSize=max_results,
+        fields="files(id, name, modifiedTime, webViewLink)",
+    ).execute()
+
+    return [
+        {
+            "id": f["id"],
+            "title": f["name"],
+            "modified": f.get("modifiedTime", ""),
+            "url": f.get("webViewLink", ""),
+        }
+        for f in result.get("files", [])
+    ]
+
+
+def read_doc(doc_id: str) -> dict:
+    """Read the full text content of a Google Doc."""
+    docs = get_docs()
+    doc = docs.documents().get(documentId=doc_id).execute()
+
+    # Extract plain text from the doc structure
+    text_parts = []
+    for elem in doc.get("body", {}).get("content", []):
+        para = elem.get("paragraph")
+        if not para:
+            continue
+        for run in para.get("elements", []):
+            text_run = run.get("textRun", {})
+            text_parts.append(text_run.get("content", ""))
+
+    return {
+        "id": doc_id,
+        "title": doc.get("title", ""),
+        "content": "".join(text_parts),
+    }
+
+
+def create_doc(title: str, content: str = "") -> dict:
+    """Create a new Google Doc with optional initial content."""
+    docs = get_docs()
+    doc = docs.documents().create(body={"title": title}).execute()
+    doc_id = doc["documentId"]
+
+    if content:
+        docs.documents().batchUpdate(
+            documentId=doc_id,
+            body={"requests": [{"insertText": {"location": {"index": 1}, "text": content}}]},
+        ).execute()
+
+    return {
+        "id": doc_id,
+        "title": title,
+        "url": f"https://docs.google.com/document/d/{doc_id}/edit",
+    }
+
+
+def append_to_doc(doc_id: str, text: str) -> dict:
+    """Append text to the end of a Google Doc."""
+    docs = get_docs()
+    # Get the current end index
+    doc = docs.documents().get(documentId=doc_id).execute()
+    end_index = doc["body"]["content"][-1]["endIndex"] - 1
+
+    docs.documents().batchUpdate(
+        documentId=doc_id,
+        body={"requests": [{
+            "insertText": {"location": {"index": end_index}, "text": "\n" + text}
+        }]},
+    ).execute()
+
+    return {"success": True, "doc_id": doc_id}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# GOOGLE SHEETS
+# ════════════════════════════════════════════════════════════════════════════
+
+def list_recent_sheets(max_results: int = 10, query: str = None) -> list:
+    """List recent Google Sheets. Optionally filter by name/keyword."""
+    drive = get_drive()
+    q = "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
+    if query:
+        q += f" and name contains '{query}'"
+
+    result = drive.files().list(
+        q=q,
+        orderBy="modifiedTime desc",
+        pageSize=max_results,
+        fields="files(id, name, modifiedTime, webViewLink)",
+    ).execute()
+
+    return [
+        {
+            "id": f["id"],
+            "title": f["name"],
+            "modified": f.get("modifiedTime", ""),
+            "url": f.get("webViewLink", ""),
+        }
+        for f in result.get("files", [])
+    ]
+
+
+def read_sheet(sheet_id: str, range_name: str = "A1:Z100") -> dict:
+    """Read a range from a Google Sheet. Default range covers most small sheets."""
+    sheets = get_sheets()
+
+    # If no specific range, try to read the first sheet's used range
+    if range_name == "A1:Z100":
+        meta = sheets.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        first_sheet_name = meta["sheets"][0]["properties"]["title"]
+        range_name = f"{first_sheet_name}!A1:Z100"
+
+    result = sheets.spreadsheets().values().get(
+        spreadsheetId=sheet_id, range=range_name
+    ).execute()
+
+    values = result.get("values", [])
+    if not values:
+        return {"sheet_id": sheet_id, "rows": [], "row_count": 0}
+
+    # First row is usually headers
+    headers = values[0] if values else []
+    data_rows = values[1:] if len(values) > 1 else []
+
+    return {
+        "sheet_id": sheet_id,
+        "headers": headers,
+        "rows": data_rows,
+        "row_count": len(data_rows),
+        "range": range_name,
+    }
+
+
+def create_sheet(title: str, headers: list = None) -> dict:
+    """Create a new Google Sheet with optional headers in row 1."""
+    sheets = get_sheets()
+    body = {"properties": {"title": title}}
+    sheet = sheets.spreadsheets().create(body=body).execute()
+    sheet_id = sheet["spreadsheetId"]
+
+    if headers:
+        sheets.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range="A1",
+            valueInputOption="USER_ENTERED",
+            body={"values": [headers]},
+        ).execute()
+
+    return {
+        "id": sheet_id,
+        "title": title,
+        "url": f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit",
+    }
+
+
+def append_row(sheet_id: str, values: list, sheet_name: str = None) -> dict:
+    """Append a row of values to a sheet. values should be a list of strings/numbers."""
+    sheets = get_sheets()
+
+    if not sheet_name:
+        meta = sheets.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        sheet_name = meta["sheets"][0]["properties"]["title"]
+
+    sheets.spreadsheets().values().append(
+        spreadsheetId=sheet_id,
+        range=f"{sheet_name}!A1",
+        valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
+        body={"values": [values]},
+    ).execute()
+
+    return {"success": True, "sheet_id": sheet_id, "appended": values}
+
+
+def update_cell(sheet_id: str, cell: str, value: str, sheet_name: str = None) -> dict:
+    """Update a single cell. cell is in A1 notation like 'B5'."""
+    sheets = get_sheets()
+
+    if not sheet_name:
+        meta = sheets.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        sheet_name = meta["sheets"][0]["properties"]["title"]
+
+    range_name = f"{sheet_name}!{cell}"
+
+    sheets.spreadsheets().values().update(
+        spreadsheetId=sheet_id,
+        range=range_name,
+        valueInputOption="USER_ENTERED",
+        body={"values": [[value]]},
+    ).execute()
+
+    return {"success": True, "sheet_id": sheet_id, "cell": cell, "value": value}
