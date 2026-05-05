@@ -1,9 +1,14 @@
-"""Inbound webhooks from n8n."""
+"""Inbound webhook from n8n.
+
+Treats n8n input identically to an SMS — same agent, same tools, same brain.
+The only difference: replies are sent via Twilio API instead of TwiML response.
+"""
 import os
-from openai import OpenAI
 from fastapi import APIRouter, Request, Header, HTTPException
 
-from tools import send_sms_to_mohanad
+from agent import run_agent
+from system_prompts import get_sms_system_prompt
+from tools import send_sms_to_mohanad, MOHANAD_PHONE
 
 router = APIRouter()
 
@@ -14,64 +19,36 @@ def _check_auth(api_key: str):
         raise HTTPException(401, "Unauthorized")
 
 
-@router.post("/notify")
-async def n8n_notify(request: Request, x_api_key: str = Header(None)):
-    """Pre-formatted SMS — n8n writes the message, Dodo just sends it.
-    Body: { "message": "..." }
+@router.post("/incoming")
+async def n8n_incoming(request: Request, x_api_key: str = Header(None)):
+    """Acts like an inbound SMS from Mohanad.
+    Body: { "message": "any natural-language instruction or data" }
     """
     _check_auth(x_api_key)
     data = await request.json()
     message = (data.get("message") or "").strip()
+
     if not message:
         raise HTTPException(400, "Missing 'message' field")
-    print(f"[n8n notify] {message[:120]}...")
-    result = send_sms_to_mohanad(message)
-    return {"success": True, "sid": result.get("sid")}
 
+    print(f"[n8n→Dodo] {message[:200]}")
 
-@router.post("/dodo")
-async def n8n_via_dodo(request: Request, x_api_key: str = Header(None)):
-    """Dodo summarizes raw data into a natural SMS, then sends it. No confirmation.
-    Body: { "context": "..." }
-    """
-    _check_auth(x_api_key)
-    data = await request.json()
-    context = (data.get("context") or "").strip()
-    if not context:
-        raise HTTPException(400, "Missing 'context' field")
-
-    print(f"[n8n dodo] Context: {context[:200]}...")
-
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    summary_prompt = (
-        "You are Dodo, an AI assistant for Mohanad. You just received data from an "
-        "automated workflow. Write a SHORT, natural SMS to Mohanad summarizing what "
-        "matters. Plain text only — no markdown, no lists, no 'Subject:' patterns. "
-        "Under 320 characters. Just the message text, nothing else (no preamble, "
-        "no 'Here's the SMS:', no quotes around it)."
-    )
+    automated_message = f"[AUTOMATED — no confirmation needed] {message}"
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": summary_prompt},
-                {"role": "user", "content": f"DATA FROM WORKFLOW:\n{context}"},
-            ],
+        reply = run_agent(
+            user_message=automated_message,
+            system_prompt=get_sms_system_prompt(),
+            phone_number=MOHANAD_PHONE,
         )
-        sms_text = (response.choices[0].message.content or "").strip()
-        if sms_text.startswith('"') and sms_text.endswith('"'):
-            sms_text = sms_text[1:-1]
+        print(f"[n8n→Dodo reply] {reply}")
 
-        print(f"[n8n dodo] Composed SMS: {sms_text}")
-        sms_result = send_sms_to_mohanad(sms_text)
-        return {"success": True, "sms_text": sms_text, "sid": sms_result.get("sid")}
+        if reply:
+            sms_result = send_sms_to_mohanad(reply)
+            return {"success": True, "reply": reply, "sid": sms_result.get("sid")}
+
+        return {"success": True, "reply": "", "note": "Dodo had nothing to say"}
 
     except Exception as e:
-        print(f"[n8n dodo error] {e}")
-        fallback = context[:300]
-        try:
-            send_sms_to_mohanad(fallback)
-            return {"success": False, "error": str(e), "fallback_sent": True}
-        except Exception as e2:
-            return {"success": False, "error": str(e), "fallback_error": str(e2)}
+        print(f"[n8n→Dodo error] {e}")
+        return {"success": False, "error": str(e)}
