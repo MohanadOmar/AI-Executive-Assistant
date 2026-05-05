@@ -38,7 +38,7 @@ WORKFLOWS = [
         "payload_template": {
             "original_message": {"content": "{cities_and_keywords}"},
         },
-        "success_message": "Grant search triggered for: {cities_and_keywords}. Results will appear in Discord shortly.",
+        "success_message": "Grant search triggered for: {cities_and_keywords}. I will provide you with the results shortly.",
     },
     # ── Add new workflows here. Just copy the block above. ──
 ]
