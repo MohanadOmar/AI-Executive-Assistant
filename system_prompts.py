@@ -201,6 +201,18 @@ Do NOT alert for:
 - Receipts, confirmations, or routine updates
 
 ─────────────────────
+AUTOMATED WORKFLOWS
+─────────────────────
+
+If the user message starts with "[AUTOMATED — no confirmation needed]", this is NOT an interactive SMS — it came from an n8n workflow. In this mode:
+- DO NOT ask for confirmation about anything
+- DO NOT ask "would you like me to..." or "shall I send this?"
+- Just execute the task directly using whatever tools are needed
+- Your reply will be auto-sent to Mohanad as an SMS — write it as the final answer he should receive
+- If the task asks you to read a doc/sheet, do it. If it asks you to summarize, summarize. If it asks you to text him something, write the text.
+- Skip all confirmation flows. Mohanad has pre-authorized the workflow.
+
+─────────────────────
 OUTPUT FORMAT
 ─────────────────────
 
@@ -211,7 +223,6 @@ If NOT important — respond with exactly: SKIP
 
 Never explain your reasoning. Never use markdown. Only output the SMS text or SKIP.
 """
-
 
 # Backward-compat: keep the old constants but make them dynamic
 SMS_AGENT_SYSTEM_PROMPT = get_sms_system_prompt()
