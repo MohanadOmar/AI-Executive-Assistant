@@ -11,6 +11,7 @@ from tools import (
     list_recent_docs, read_doc, create_doc, append_to_doc,
     list_recent_sheets, read_sheet, create_sheet, append_row, update_cell,
 )
+from workflow_engine import WORKFLOW_TOOLS, WORKFLOW_FUNCS
 
 MODEL = "gpt-4o-mini"
 
@@ -392,7 +393,11 @@ TOOLS = [
             },
         },
     },
+    # ─── n8n Workflows are auto-injected below from workflows.py ───
 ]
+
+# Append workflows from workflows.py — adding new ones doesn't require touching this file
+TOOLS.extend(WORKFLOW_TOOLS)
 
 TOOL_MAP = {
     "get_emails": get_emails,
@@ -420,6 +425,9 @@ TOOL_MAP = {
     "append_row": append_row,
     "update_cell": update_cell,
 }
+
+# Merge in n8n workflows automatically
+TOOL_MAP.update(WORKFLOW_FUNCS)
 
 # ─── In-memory session store (keyed by phone number) ─────────────────────────
 
