@@ -7,6 +7,8 @@ import uvicorn
 from sms import router as sms_router
 from gmail_monitor import router as gmail_router
 from gmail_poller import start_poller
+from n8n_webhook import router as n8n_router
+app.include_router(n8n_router, prefix="/n8n")
 
 
 @asynccontextmanager
