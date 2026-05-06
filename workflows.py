@@ -22,11 +22,11 @@ Field reference:
 WORKFLOWS = [
     {
         "name": "search_grants",
-        "url": "https://sansona.app.n8n.cloud/webhook/garett",
+        "url": "https://sansona.app.n8n.cloud/webhook/ad284edc-ef15-4379-8ff2-d849ad980e50",
         "description": (
             "Search for grants matching specific cities and keywords. "
             "Triggers Garett, an external workflow that searches grants.gov + Google "
-            "and posts results to Discord. Use when the user asks to find/search/look up grants. "
+            "and texts the results back. Use when the user asks to find/search/look up grants. "
             "Always confirm cities and keywords with the user before triggering."
         ),
         "inputs": [
@@ -38,7 +38,24 @@ WORKFLOWS = [
         "payload_template": {
             "original_message": {"content": "{cities_and_keywords}"},
         },
-        "success_message": "Grant search triggered for: {cities_and_keywords}. Results will appear in Discord shortly.",
+        "success_message": "Searching grants for: {cities_and_keywords}. I'll text you when results are ready.",
     },
     # ── Add new workflows here. Just copy the block above. ──
+
+    {
+        "name": "get_overdue_invoices",
+        "url": "https://trevonemc.app.n8n.cloud/webhook/b284fd2b-42f6-4fa3-9edf-75971afe09e3",
+        "description": (
+            "Fetch all overdue/unpaid QuickBooks invoices via the Zylo workflow. "
+            "Use this when the user asks about overdue invoices, unpaid invoices, "
+            "outstanding balances, what clients owe, who hasn't paid, or anything "
+            "about money owed. Returns a list of invoices with client names, "
+            "amounts, balances, and due dates. Read the data and answer the user's "
+            "question naturally — count clients, sum totals, identify oldest, etc."
+        ),
+        "inputs": [],  # No params — Zylo just dumps overdue invoices
+        "sync": True,  # Wait for the response
+        "timeout": 30,  # QuickBooks queries can be slow
+        "transform": "invoices",  # Pre-aggregate so Dodo gets clean stats
+    },
 ]
