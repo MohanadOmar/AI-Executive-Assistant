@@ -20,7 +20,7 @@ Field reference:
 """
 
 WORKFLOWS = [
-    {
+    { #Garett
         "name": "search_grants",
         "url": "https://sansona.app.n8n.cloud/webhook/ad284edc-ef15-4379-8ff2-d849ad980e50",
         "description": (
@@ -40,7 +40,7 @@ WORKFLOWS = [
         },
         "success_message": "Searching grants for: {cities_and_keywords}. I'll text you when results are ready.",
     },
-    {
+    { #Zylo
         "name": "get_overdue_invoices",
         "url": "https://trevonemc.app.n8n.cloud/webhook/ad284edc-ef15-4379-8ff2-d849ad980e50",
         "description": (
@@ -54,6 +54,7 @@ WORKFLOWS = [
         "inputs": [],
         "sync": True,
         "timeout": 30,
+        "transform": "invoices",
     },
     # ── Add new workflows here. Just copy the block above. ──
 ]
