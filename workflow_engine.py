@@ -1,16 +1,10 @@
-"""Generates everything the agent needs from workflows.py — automatically.
-
-Provides:
-- WORKFLOW_TOOLS  : OpenAI tool schemas (just append to TOOLS in agent.py)
-- WORKFLOW_FUNCS  : dict mapping name -> callable (just merge into TOOL_MAP)
-"""
+"""Generates everything the agent needs from workflows.py — automatically."""
 import json
 import requests
 from workflows import WORKFLOWS
 
 
 def _interpolate(template, args: dict):
-    """Recursively replace {arg_name} in strings inside the template."""
     if isinstance(template, str):
         try:
             return template.format(**args)
@@ -23,13 +17,95 @@ def _interpolate(template, args: dict):
     return template
 
 
+def _pick_first(d: dict, *keys):
+    for key in keys:
+        cur = d
+        ok = True
+        for part in key.split("."):
+            if isinstance(cur, dict) and part in cur:
+                cur = cur[part]
+            else:
+                ok = False
+                break
+        if ok and cur not in (None, "", []):
+            return cur
+    return None
+
+
+def _to_float(v) -> float:
+    try:
+        return float(v) if v is not None else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def transform_invoices(items: list) -> dict:
+    """Aggregate a QuickBooks-style invoice array into a clean summary."""
+    if not isinstance(items, list):
+        return {"error": "Expected a list of invoices"}
+
+    by_client = {}
+    total_owed = 0.0
+    oldest = None
+
+    for inv in items:
+        if not isinstance(inv, dict):
+            continue
+
+        client = _pick_first(inv,
+            "CustomerRef.name", "Customer.DisplayName",
+            "customerName", "CustomerName", "client",
+        ) or "Unknown"
+
+        balance = _to_float(_pick_first(inv,
+            "Balance", "balance", "AmountDue", "amount_due",
+        ))
+
+        due = _pick_first(inv, "DueDate", "dueDate", "due_date")
+
+        if client not in by_client:
+            by_client[client] = {"invoices": 0, "total": 0.0}
+        by_client[client]["invoices"] += 1
+        by_client[client]["total"] += balance
+        total_owed += balance
+
+        if due and (oldest is None or due < oldest[0]):
+            oldest = (due, client, balance)
+
+    sorted_clients = sorted(
+        [{"client": k, **v} for k, v in by_client.items()],
+        key=lambda x: x["total"],
+        reverse=True,
+    )
+
+    summary = {
+        "count": len(items),
+        "unique_clients": len(by_client),
+        "total_owed": round(total_owed, 2),
+        "by_client": sorted_clients[:10],
+    }
+
+    if oldest:
+        summary["oldest_due"] = {
+            "due_date": oldest[0],
+            "client": oldest[1],
+            "balance": round(oldest[2], 2),
+        }
+
+    return summary
+
+
+TRANSFORMS = {"invoices": transform_invoices}
+
+
 def _make_function(workflow: dict):
-    """Build a callable that POSTs to the workflow's webhook."""
     url = workflow["url"]
     template = workflow.get("payload_template")
     success_msg = workflow.get("success_message", "Workflow triggered.")
     timeout_seconds = workflow.get("timeout", 10)
     sync = workflow.get("sync", False)
+    transform_name = workflow.get("transform")
+    transform_fn = TRANSFORMS.get(transform_name) if transform_name else None
 
     def runner(**kwargs):
         payload = _interpolate(template, kwargs) if template else kwargs
@@ -41,6 +117,12 @@ def _make_function(workflow: dict):
 
             try:
                 body = response.json()
+
+                if transform_fn:
+                    items = body if isinstance(body, list) else body.get("data", body)
+                    summary = transform_fn(items)
+                    return {"success": True, **summary}
+
                 if isinstance(body, list):
                     return {"success": True, "data": body, "count": len(body)}
                 if isinstance(body, dict) and body:
@@ -60,8 +142,8 @@ def _make_function(workflow: dict):
     runner.__name__ = workflow["name"]
     return runner
 
+
 def _make_schema(workflow: dict) -> dict:
-    """Build the OpenAI tool definition from the workflow config."""
     properties = {}
     required = []
     for inp in workflow.get("inputs", []):
@@ -86,6 +168,5 @@ def _make_schema(workflow: dict) -> dict:
     }
 
 
-# Generated outputs — import these in agent.py
 WORKFLOW_TOOLS = [_make_schema(wf) for wf in WORKFLOWS]
 WORKFLOW_FUNCS = {wf["name"]: _make_function(wf) for wf in WORKFLOWS}
