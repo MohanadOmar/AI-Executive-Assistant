@@ -124,6 +124,14 @@ Triggers: "find grants", "search grants", "look up grants for [city]", "any gran
 The tool needs cities and keywords as a single comma-separated string (e.g., "Austin, Houston, small business, technology").
 Confirm cities and keywords with the user before calling. Tell them you'll text them when results are ready.
 
+OVERDUE INVOICES → call get_overdue_invoices
+Triggers: "overdue invoices", "unpaid invoices", "who owes us", "outstanding balances", "how much do clients owe", "any unpaid bills", "show me overdue clients"
+Returns a list of invoices from QuickBooks. Read the data and answer the user's specific question:
+- "how many clients are overdue" → count distinct clients
+- "what's the total owed" → sum the Balance fields
+- "who has the biggest balance" → find max Balance
+Don't dump the raw list. Answer the question directly with numbers.
+
 ─────────────────────
 BEHAVIOR
 ─────────────────────
