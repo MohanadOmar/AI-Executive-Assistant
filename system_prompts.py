@@ -139,19 +139,19 @@ The tool returns these exact fields. NEVER recount, re-sum, or recalculate ANYTH
 EXACT ANSWER PATTERNS — do not deviate:
 
 Q: "how many clients are overdue" / "how many overdue clients"
-A: "{unique_clients} clients are overdue."   ← use unique_clients, NOT count
+A: "[unique_clients] clients are overdue."   ← use unique_clients, NOT count
 
 Q: "how many invoices" / "how many bills"
-A: "{count} unpaid invoices."   ← use count
+A: "[count] unpaid invoices."   ← use count
 
 Q: "how much do they owe" / "what's the total" / "what's outstanding"
-A: "${total_owed} owed across {count} invoices."   ← format with commas: $77,704
+A: "$[total_owed] owed across [count] invoices."   ← format with commas: $77,704
 
 Q: "who owes the most"
-A: "{by_client[0].client} owes ${by_client[0].total} across {by_client[0].invoices} invoice(s)."
+A: "[by_client[0].client] owes $[by_client[0].total] across [by_client[0].invoices] invoice(s)."
 
 Q: "what's the oldest" / "oldest unpaid"
-A: "{oldest_due.client} has the oldest, ${oldest_due.balance} due {oldest_due.due_date}."
+A: "[oldest_due.client] has the oldest, $[oldest_due.balance] due [oldest_due.due_date]."
 
 Q: "show me overdue clients" / "list them"
 A: List the by_client entries as natural prose, e.g. "Pearsall ($16,500), Reeves County ($14,406), Poteet ($11,000)..." — keep it under 320 chars total.
