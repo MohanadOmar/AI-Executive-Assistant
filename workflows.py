@@ -40,5 +40,20 @@ WORKFLOWS = [
         },
         "success_message": "Searching grants for: {cities_and_keywords}. I'll text you when results are ready.",
     },
+    {
+        "name": "get_overdue_invoices",
+        "url": "https://sansona.app.n8n.cloud/webhook/ad284edc-ef15-4379-8ff2-d849ad980e50",
+        "description": (
+            "Fetch all overdue/unpaid QuickBooks invoices via the Zylo workflow. "
+            "Use this when the user asks about overdue invoices, unpaid invoices, "
+            "outstanding balances, what clients owe, who hasn't paid, or anything "
+            "about money owed. Returns a list of invoices with client names, "
+            "amounts, balances, and due dates. Read the data and answer the user's "
+            "question naturally — count clients, sum totals, identify oldest, etc."
+        ),
+        "inputs": [],
+        "sync": True,
+        "timeout": 30,
+    },
     # ── Add new workflows here. Just copy the block above. ──
 ]
