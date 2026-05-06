@@ -1,7 +1,7 @@
 import json
 import os
 from collections import defaultdict
-from anthropic import Anthropic
+from openai import OpenAI
 from tools import (
     get_emails, create_draft, send_email, reply_to_email, add_label,
     get_calendar_events, create_calendar_event,
@@ -13,9 +13,7 @@ from tools import (
 )
 from workflow_engine import WORKFLOW_TOOLS, WORKFLOW_FUNCS
 
-# Claude Sonnet 4.6 — best balance of accuracy + cost for tool-use agents
-MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 1024
+MODEL = "gpt-4o-mini"
 
 # ─── Tool definitions ────────────────────────────────────────────────────────
 
@@ -437,73 +435,34 @@ _sessions: dict[str, list] = defaultdict(list)
 MAX_HISTORY = 20
 
 
-def _convert_tools_to_anthropic(openai_tools: list) -> list:
-    """OpenAI tool schemas -> Anthropic format.
-
-    OpenAI: { type: "function", function: { name, description, parameters } }
-    Claude: { name, description, input_schema }
-    """
-    converted = []
-    for t in openai_tools:
-        if t.get("type") == "function" and "function" in t:
-            fn = t["function"]
-            converted.append({
-                "name": fn["name"],
-                "description": fn.get("description", ""),
-                "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
-            })
-        else:
-            # Already in Anthropic format
-            converted.append(t)
-    return converted
-
-
 def run_agent(user_message: str, system_prompt: str, phone_number: str = None, tools: list = None) -> str:
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     history = _sessions[phone_number] if phone_number else []
 
-    # Anthropic uses 'user'/'assistant' roles; system is a separate param.
-    # Filter out any 'system' or 'tool' entries from saved history (shouldn't be there, but safety).
-    messages = [m for m in history if m.get("role") in ("user", "assistant")]
-    messages.append({"role": "user", "content": user_message})
+    messages = [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user", "content": user_message},
+    ]
 
-    active_tools_openai = TOOLS if tools is None else tools
-    active_tools = _convert_tools_to_anthropic(active_tools_openai) if active_tools_openai else []
-
-    final_text = ""
+    active_tools = TOOLS if tools is None else tools
 
     while True:
-        kwargs = {
-            "model": MODEL,
-            "max_tokens": MAX_TOKENS,
-            "system": system_prompt,
-            "messages": messages,
-        }
+        kwargs = {"model": MODEL, "messages": messages}
         if active_tools:
             kwargs["tools"] = active_tools
+            kwargs["tool_choice"] = "auto"
 
-        response = client.messages.create(**kwargs)
+        response = client.chat.completions.create(**kwargs)
+        assistant_msg = response.choices[0].message
+        messages.append(assistant_msg)
 
-        # Append the assistant turn (Claude expects content to be the list of blocks)
-        messages.append({
-            "role": "assistant",
-            "content": response.content,
-        })
-
-        # Check stop reason — if not tool_use, we're done
-        if response.stop_reason != "tool_use":
-            # Pull out the final text from any text blocks
-            text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
-            final_text = "\n".join(text_parts).strip()
+        if not assistant_msg.tool_calls:
             break
 
-        # Run all tool_use blocks and append a single user message with tool_results
-        tool_results = []
-        for block in response.content:
-            if getattr(block, "type", None) != "tool_use":
-                continue
-            name = block.name
-            args = block.input or {}
+        for tool_call in assistant_msg.tool_calls:
+            name = tool_call.function.name
+            args = json.loads(tool_call.function.arguments)
             print(f"[Tool] {name}({args})")
 
             try:
@@ -515,23 +474,20 @@ def run_agent(user_message: str, system_prompt: str, phone_number: str = None, t
                 result = {"error": str(e)}
                 print(f"[Tool Error] {name}: {e}")
 
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": json.dumps(result, default=str),
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": json.dumps(result),
             })
 
-        messages.append({
-            "role": "user",
-            "content": tool_results,
-        })
+    output = assistant_msg.content or ""
 
-    # Save to session memory (keep only text-form turns to avoid bloat)
+    # Save to session memory
     if phone_number:
         session = _sessions[phone_number]
         session.append({"role": "user", "content": user_message})
-        session.append({"role": "assistant", "content": final_text})
+        session.append({"role": "assistant", "content": output})
         if len(session) > MAX_HISTORY:
             _sessions[phone_number] = session[-MAX_HISTORY:]
 
-    return final_text
+    return output
