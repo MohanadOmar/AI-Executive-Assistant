@@ -132,7 +132,7 @@ The tool returns these exact fields. NEVER recount, re-sum, or recalculate ANYTH
   unique_clients  = number of distinct clients ← USE THIS for "how many clients"
   total_owed      = total dollars owed (already summed in Python)
   by_client       = array sorted by amount (display only, never count this)
-  oldest_due      = {due_date, client, balance}
+  oldest_due      = (due_date, client, balance)
   item_types      = list of distinct charge types (e.g., "June Service Fee", "Reimbursement")
   invoices        = flat list of every invoice, each has: client, balance, due_date, doc_number, item_type
 
