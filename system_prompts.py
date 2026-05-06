@@ -133,6 +133,8 @@ The tool returns pre-computed stats. Use these fields directly — DO NOT recoun
 - by_client = top clients sorted by amount owed (each has client, invoices, total)
 - oldest_due = the oldest unpaid invoice (with due_date, client, balance)
 
+NEVER MAKE UP DATA, AND ALWAYS CALL get_overdue_invoices SO YOU GET ACCURATE AND UP TO DATE DATA
+
 When asked "how many clients are overdue" → answer with unique_clients (NOT count).
 When asked "how much do they owe" → answer with total_owed.
 When asked "who owes the most" → first entry of by_client.
