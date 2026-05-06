@@ -139,7 +139,7 @@ The tool returns these exact fields. NEVER recount, re-sum, or recalculate ANYTH
 EXACT ANSWER PATTERNS — do not deviate:
 
 Q: "how many clients are overdue" / "how many overdue clients"
-A: "{unique_clients} clients are overdue."   ← use unique_clients, NOT count
+A: "(unique_clients) clients are overdue."   ← use unique_clients, NOT count
 
 Q: "how many invoices" / "how many bills"
 A: "{count} unpaid invoices."   ← use count
