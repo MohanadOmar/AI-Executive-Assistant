@@ -28,18 +28,21 @@ def _make_function(workflow: dict):
     url = workflow["url"]
     template = workflow.get("payload_template")
     success_msg = workflow.get("success_message", "Workflow triggered.")
+    timeout_seconds = workflow.get("timeout", 10)
+    sync = workflow.get("sync", False)
 
     def runner(**kwargs):
         payload = _interpolate(template, kwargs) if template else kwargs
 
         try:
-            response = requests.post(url, json=payload, timeout=10)
+            response = requests.post(url, json=payload, timeout=timeout_seconds)
             if response.status_code >= 400:
                 return {"success": False, "error": f"n8n returned {response.status_code}: {response.text[:200]}"}
 
-            # Try to return the n8n response body if it's JSON, otherwise the success message
             try:
                 body = response.json()
+                if isinstance(body, list):
+                    return {"success": True, "data": body, "count": len(body)}
                 if isinstance(body, dict) and body:
                     return {"success": True, **body}
             except Exception:
@@ -48,14 +51,14 @@ def _make_function(workflow: dict):
             return {"success": True, "message": success_msg.format(**kwargs)}
 
         except requests.Timeout:
-            # Fire-and-forget workflows often time out — that's fine
+            if sync:
+                return {"success": False, "error": f"Workflow timed out after {timeout_seconds}s"}
             return {"success": True, "message": success_msg.format(**kwargs)}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     runner.__name__ = workflow["name"]
     return runner
-
 
 def _make_schema(workflow: dict) -> dict:
     """Build the OpenAI tool definition from the workflow config."""
