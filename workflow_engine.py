@@ -55,8 +55,7 @@ def _to_float(v) -> float:
 def transform_invoices(items: list) -> dict:
     """Aggregate a QuickBooks-style invoice array into a clean summary.
 
-    Returns: count, unique_clients, total_owed, by_client (top 10),
-             oldest_due, invoices (flat list with item_type for filtering)
+    Returns: count, unique_clients, total_owed, by_client (top 10), oldest_due, sample
     """
     if not isinstance(items, list):
         return {"error": "Expected a list of invoices"}
@@ -64,7 +63,6 @@ def transform_invoices(items: list) -> dict:
     by_client = {}  # name -> {invoices, total}
     total_owed = 0.0
     oldest = None  # (due_date, client, balance)
-    invoice_list = []  # flat list of every invoice with key fields
 
     for inv in items:
         if not isinstance(inv, dict):
@@ -86,18 +84,6 @@ def transform_invoices(items: list) -> dict:
             "DueDate", "dueDate", "due_date",
         )
 
-        doc_number = _pick_first(inv, "DocNumber", "docNumber", "invoice_number")
-
-        # Extract ItemRef.name from the first Line item (skipping SubTotalLineDetail)
-        item_type = None
-        for line in inv.get("Line", []):
-            detail = line.get("SalesItemLineDetail") or line.get("salesItemLineDetail")
-            if detail:
-                item_ref = detail.get("ItemRef") or detail.get("itemRef")
-                if item_ref:
-                    item_type = item_ref.get("name", None)
-                break  # only need the first real line item
-
         # Aggregate
         if client not in by_client:
             by_client[client] = {"invoices": 0, "total": 0.0}
@@ -109,15 +95,6 @@ def transform_invoices(items: list) -> dict:
         if due and (oldest is None or due < oldest[0]):
             oldest = (due, client, balance)
 
-        # Add to flat list for detailed queries
-        invoice_list.append({
-            "client": client,
-            "balance": balance,
-            "due_date": due,
-            "doc_number": doc_number,
-            "item_type": item_type,
-        })
-
     # Sort clients by total owed
     sorted_clients = sorted(
         [{"client": k, **v} for k, v in by_client.items()],
@@ -125,16 +102,11 @@ def transform_invoices(items: list) -> dict:
         reverse=True,
     )
 
-    # Collect distinct item types
-    item_types = sorted(set(i["item_type"] for i in invoice_list if i["item_type"]))
-
     summary = {
         "count": len(items),
         "unique_clients": len(by_client),
         "total_owed": round(total_owed, 2),
         "by_client": sorted_clients[:10],
-        "item_types": item_types,
-        "invoices": invoice_list,
     }
 
     if oldest:
