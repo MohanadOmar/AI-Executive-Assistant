@@ -13,7 +13,7 @@ from tools import (
 )
 from workflow_engine import WORKFLOW_TOOLS, WORKFLOW_FUNCS
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o"
 
 # ─── Tool definitions ────────────────────────────────────────────────────────
 
