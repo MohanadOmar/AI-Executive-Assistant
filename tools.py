@@ -623,3 +623,121 @@ def update_cell(sheet_id: str, cell: str, value: str, sheet_name: str = None) ->
 
 
 
+
+# ════════════════════════════════════════════════════════════════════════════
+# PERPLEXITY — real-time web search
+# ════════════════════════════════════════════════════════════════════════════
+
+import requests as _requests
+
+def web_search(query: str) -> dict:
+    """Search the web in real-time using Perplexity Sonar.
+
+    Returns a concise answer with source citations.
+    Use this for any question that needs current/real-time information,
+    news, research, facts, pricing, comparisons, or anything
+    outside of Mohanad's own tools (Gmail, Calendar, Notion, etc.).
+    """
+    api_key = os.environ.get("PERPLEXITY_API_KEY", "")
+    if not api_key:
+        return {"error": "PERPLEXITY_API_KEY not set"}
+
+    try:
+        response = _requests.post(
+            "https://api.perplexity.ai/v1/sonar",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "sonar",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a research assistant. Provide a concise, factual answer "
+                            "with key details. Keep it under 200 words. Include specific "
+                            "numbers, dates, and names when relevant."
+                        ),
+                    },
+                    {"role": "user", "content": query},
+                ],
+            },
+            timeout=30,
+        )
+
+        if response.status_code >= 400:
+            return {"error": f"Perplexity returned {response.status_code}: {response.text[:200]}"}
+
+        data = response.json()
+        answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        citations = data.get("citations", [])
+
+        result = {"answer": answer}
+        if citations:
+            result["sources"] = citations[:5]  # top 5 sources
+
+        return result
+
+    except _requests.Timeout:
+        return {"error": "Perplexity search timed out"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PERPLEXITY — Real-time web search via Sonar API
+# ════════════════════════════════════════════════════════════════════════════
+
+def web_search(query: str) -> dict:
+    """Search the web in real-time using Perplexity Sonar.
+
+    Use this for any question that needs current information:
+    news, prices, recent events, company info, regulations, etc.
+    """
+    import requests as _req
+
+    api_key = os.environ.get("PERPLEXITY_API_KEY", "")
+    if not api_key:
+        return {"error": "PERPLEXITY_API_KEY not set"}
+
+    try:
+        response = _req.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "sonar",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a research assistant. Provide a concise, factual answer "
+                            "with the most important details. Keep it under 300 words. "
+                            "Include specific numbers, dates, and names where relevant."
+                        ),
+                    },
+                    {"role": "user", "content": query},
+                ],
+            },
+            timeout=30,
+        )
+
+        if response.status_code >= 400:
+            return {"error": f"Perplexity returned {response.status_code}: {response.text[:200]}"}
+
+        data = response.json()
+        answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        citations = data.get("citations", [])
+
+        result = {"answer": answer}
+        if citations:
+            result["sources"] = citations[:5]  # Top 5 sources
+        return result
+
+    except _req.Timeout:
+        return {"error": "Perplexity search timed out"}
+    except Exception as e:
+        return {"error": str(e)}

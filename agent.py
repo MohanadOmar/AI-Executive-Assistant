@@ -10,6 +10,7 @@ from tools import (
     search_contacts, create_contact, update_contact,
     list_recent_docs, read_doc, create_doc, append_to_doc,
     list_recent_sheets, read_sheet, create_sheet, append_row, update_cell,
+    web_search,
 )
 from workflow_engine import WORKFLOW_TOOLS, WORKFLOW_FUNCS
 
@@ -395,6 +396,24 @@ TOOLS = [
             },
         },
     },
+    # ─── Perplexity Web Search ─────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web in real-time using Perplexity. Use for any question needing current info: news, prices, events, company info, regulations, people, recent developments, market data, or anything Dodo doesn't already know.",
+            "parameters": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query. Be specific: 'Texas infrastructure grants 2026' not 'grants'.",
+                    },
+                },
+            },
+        },
+    },
     # ─── n8n Workflows are auto-injected below from workflows.py ───
 ]
 
@@ -426,6 +445,7 @@ TOOL_MAP = {
     "create_sheet": create_sheet,
     "append_row": append_row,
     "update_cell": update_cell,
+    "web_search": web_search,
 }
 
 # Merge in n8n workflows automatically
