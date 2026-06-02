@@ -266,7 +266,7 @@ def get_notion_tasks(return_all: bool = True) -> list:
     for page in result["results"]:
         props = page["properties"]
         title = (
-            props.get("Name", props.get("Task", {}))
+            props.get("Task", props.get("Name", {}))
             .get("title", [{}])[0]
             .get("plain_text", "Untitled")
         )
@@ -284,7 +284,7 @@ def update_notion_task(page_id: str, status: str = None, title: str = None) -> d
     if status:
         properties["Status"] = {"select": {"name": status}}
     if title:
-        properties["Name"] = {"title": [{"text": {"content": title}}]}
+        properties["Task"] = {"title": [{"text": {"content": title}}]}
     notion.pages.update(page_id=page_id, properties=properties)
     return {"success": True, "page_id": page_id}
 
@@ -293,7 +293,7 @@ def create_notion_task(title: str) -> dict:
     notion = get_notion()
     page = notion.pages.create(
         parent={"database_id": NOTION_DATABASE_ID},
-        properties={"Name": {"title": [{"text": {"content": title}}]}},
+        properties={"Task": {"title": [{"text": {"content": title}}]}},
     )
     return {"page_id": page["id"], "title": title}
 
