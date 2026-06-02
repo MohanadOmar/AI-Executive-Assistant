@@ -6,19 +6,24 @@ import uvicorn
 
 from sms import router as sms_router
 from n8n_webhook import router as n8n_router
+from retell_ws import router as retell_router
 from gmail_poller import start_poller
+from reminder_poller import start_reminder_poller
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(start_poller())
+    gmail_task = asyncio.create_task(start_poller())
+    reminder_task = asyncio.create_task(start_reminder_poller())
     yield
-    task.cancel()
+    gmail_task.cancel()
+    reminder_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(sms_router, prefix="/sms")
 app.include_router(n8n_router, prefix="/n8n")
+app.include_router(retell_router)
 
 
 @app.get("/health")

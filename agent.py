@@ -11,6 +11,7 @@ from tools import (
     list_recent_docs, read_doc, create_doc, append_to_doc,
     list_recent_sheets, read_sheet, create_sheet, append_row, update_cell,
     web_search,
+    create_reminder, list_reminders, delete_reminder,
 )
 from workflow_engine import WORKFLOW_TOOLS, WORKFLOW_FUNCS
 
@@ -396,6 +397,49 @@ TOOLS = [
             },
         },
     },
+    # ─── Reminders ───────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "create_reminder",
+            "description": "Create a timed reminder. Dodo will text Mohanad when the time comes. Use for 'remind me', 'don't let me forget', 'alert me at', etc.",
+            "parameters": {
+                "type": "object",
+                "required": ["message", "remind_at"],
+                "properties": {
+                    "message": {"type": "string", "description": "What to remind about, e.g. 'Buy soap'"},
+                    "remind_at": {"type": "string", "description": "ISO 8601 datetime with timezone, e.g. '2026-05-13T18:00:00-05:00'"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_reminders",
+            "description": "List upcoming reminders that haven't been sent yet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "include_sent": {"type": "boolean", "description": "Include already-sent reminders. Default false."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_reminder",
+            "description": "Cancel/delete a reminder by its ID. Use list_reminders first to find the ID.",
+            "parameters": {
+                "type": "object",
+                "required": ["reminder_id"],
+                "properties": {
+                    "reminder_id": {"type": "string"},
+                },
+            },
+        },
+    },
     # ─── Perplexity Web Search ─────────────────────────────────────
     {
         "type": "function",
@@ -446,6 +490,9 @@ TOOL_MAP = {
     "append_row": append_row,
     "update_cell": update_cell,
     "web_search": web_search,
+    "create_reminder": create_reminder,
+    "list_reminders": list_reminders,
+    "delete_reminder": delete_reminder,
 }
 
 # Merge in n8n workflows automatically

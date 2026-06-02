@@ -741,3 +741,38 @@ def web_search(query: str) -> dict:
         return {"error": "Perplexity search timed out"}
     except Exception as e:
         return {"error": str(e)}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# REMINDERS (Supabase)
+# ════════════════════════════════════════════════════════════════════════════
+
+def create_reminder(message: str, remind_at: str) -> dict:
+    """Create a timed reminder. remind_at must be ISO 8601 with timezone (e.g. 2026-05-13T18:00:00-05:00)."""
+    supabase = get_supabase()
+    row = supabase.table("reminders").insert({
+        "message": message,
+        "remind_at": remind_at,
+        "sent": False,
+    }).execute()
+
+    if row.data:
+        return {"success": True, "id": row.data[0]["id"], "message": message, "remind_at": remind_at}
+    return {"success": False, "error": "Failed to create reminder"}
+
+
+def list_reminders(include_sent: bool = False) -> list:
+    """List upcoming reminders. By default only shows unsent ones."""
+    supabase = get_supabase()
+    query = supabase.table("reminders").select("*").order("remind_at")
+    if not include_sent:
+        query = query.eq("sent", False)
+    result = query.execute()
+    return result.data or []
+
+
+def delete_reminder(reminder_id: str) -> dict:
+    """Delete a reminder by ID."""
+    supabase = get_supabase()
+    supabase.table("reminders").delete().eq("id", reminder_id).execute()
+    return {"success": True, "deleted": reminder_id}
